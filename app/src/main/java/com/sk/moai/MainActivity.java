@@ -62,9 +62,16 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView mImageDetails;
     private ImageView mMainImage;
-    private TextToSpeech tts;
     private Button btnDetection ;
     private Button btnText ;
+    private Button btnLandmark ;
+
+    // TTS 설정
+    private TextToSpeech tts;
+    private Locale mLocale = Locale.US;
+    private float mPitch = (float) 0;
+    private float mRate = (float) 0;
+    private int mQueue = TextToSpeech.QUEUE_ADD;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,18 +86,19 @@ public class MainActivity extends AppCompatActivity {
         mImageDetails = (TextView) findViewById(R.id.imageResult);
         previewFrame.addView(cameraView);
 
-        tts=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+        tts = new TextToSpeech(getBaseContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
-                if(status != TextToSpeech.ERROR) {
-                    tts.setLanguage(Locale.KOREAN);
+                if(status == TextToSpeech.SUCCESS) {
+                } else{
+                    // todo: fail 시 처리
                 }
             }
         });
 
         btnDetection = (Button)findViewById(R.id.btnDetection);
         btnText = (Button)findViewById(R.id.btnText);
-
+        btnLandmark = (Button)findViewById(R.id.btnLandmark);
 
         btnDetection.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -102,6 +110,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 FEATURE_TYPE = "TEXT_DETECTION";
+            }
+        });
+        btnLandmark.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                FEATURE_TYPE = "LANDMARK_DETECTION";
             }
         });
 
@@ -134,7 +148,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-
+/*
     public void startGalleryChooser() {
         if (PermissionUtils.requestPermission(this, GALLERY_PERMISSIONS_REQUEST, Manifest.permission.READ_EXTERNAL_STORAGE)) {
             Intent intent = new Intent();
@@ -165,18 +179,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-/*        if (requestCode == GALLERY_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
-            uploadImage(data.getData());
-        } else if (requestCode == CAMERA_IMAGE_REQUEST && resultCode == RESULT_OK) {
-            Uri photoUri = FileProvider.getUriForFile(this, getApplicationContext().getPackageName() + ".provider", getCameraFile());
-            uploadImage(photoUri);
-        }*/
-    }
-
-    @Override
     public void onRequestPermissionsResult(
             int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -193,6 +195,11 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
     }
+*/
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+    }
 
     // Bitmap bitmap
     public void uploadImage(Bitmap bitmap) {
@@ -200,7 +207,6 @@ public class MainActivity extends AppCompatActivity {
             try {
                 // scale the image to save on bandwidth
                 Bitmap downBitmap = scaleBitmapDown( bitmap,  1200);
-
                 callCloudVision(downBitmap);
                 //mMainImage.setImageBitmap(bitmap);
 
@@ -213,29 +219,8 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
         }
     }
-    /*public void uploadImage(Uri uri) {
-        if (uri != null) {
-            try {
-                // scale the image to save on bandwidth
-                Bitmap bitmap = scaleBitmapDown( MediaStore.Images.Media.getBitmap(getContentResolver(), uri),  1200);
-
-                callCloudVision(bitmap);
-                mMainImage.setImageBitmap(bitmap);
-
-            } catch (IOException e) {
-                Log.d(TAG, "Image picking failed because " + e.getMessage());
-                Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
-            }
-        } else {
-            Log.d(TAG, "Image picker gave us a null image.");
-            Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
-        }
-    }*/
 
     private void callCloudVision(final Bitmap bitmap) throws IOException {
-        // Switch text to loading
-        //mImageDetails.setText(R.string.loading_message);
-
         // Do the real work in an async task, because we need to use the network anyway
         new AsyncTask<Object, Void, String>() {
             @Override
@@ -320,10 +305,12 @@ public class MainActivity extends AppCompatActivity {
             protected void onPostExecute(String result) {
                 mImageDetails.setText(result);
                 String text = mImageDetails.getText().toString();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    ttsGreater21(text);
-                } else {
-                    ttsUnder20(text);
+                if(text.length() > 0) {
+                    Log.d("@@@@@@@ text",text);
+                    setLanguage(mLocale);
+                    setPitch(mPitch);
+                    setSpeechRate(mRate);
+                    speak(text, 0);
                 }
             }
         }.execute();
@@ -350,44 +337,73 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String convertResponseToString(BatchAnnotateImagesResponse response) {
-        //String message = "I found these things:\n\n";
         String result = "" ;
-        List<EntityAnnotation> labels = response.getResponses().get(0).getLabelAnnotations();
+        String message = "" ;
+        List<EntityAnnotation> labels = null ;
+
+        if( FEATURE_TYPE.equals("LABEL_DETECTION")  ) {
+            labels = response.getResponses().get(0).getLabelAnnotations();
+        }else if(  FEATURE_TYPE.equals("TEXT_DETECTION")  ){
+            labels = response.getResponses().get(0).getTextAnnotations();
+        }else if( FEATURE_TYPE.equals("LANDMARK_DETECTION") ){
+            labels = response.getResponses().get(0).getLandmarkAnnotations();
+        }
+
         if (labels != null) {
             result = labels.get(0).getDescription() ;
-           /* for (EntityAnnotation label : labels) {
-                message += String.format(Locale.US, "%.3f: %s", label.getScore(), label.getDescription());
+            for (EntityAnnotation label : labels) {
+                message += String.format(Locale.US, "%.3f: %s : %s", label.getScore(), label.getDescription() , label.getLocations());
                 message += "\n";
-            }*/
-            Log.d("#### Response : ", FEATURE_TYPE + " / " + result );
+            }
+            Log.d("#### Response : ", FEATURE_TYPE + " / " + message );
         } else {
             Log.d("#### Response : ", FEATURE_TYPE + " / " +  "I don't know..." );
             result += "I don't know...";
         }
-
         return result;
     }
 
+    /******************************************************
+     * TTS 관련 함수
+     ******************************************************/
     @Override
     protected void onDestroy() {
-        super.onDestroy();
-
-        if(tts !=null){
-            tts.stop();
+        if (tts != null) {
+            if(tts.isSpeaking()) {
+                tts.stop();
+            }
             tts.shutdown();
+        }
+        super.onDestroy();
+    }
+    /** 언어 선택 */
+    public void setLanguage(Locale locale){
+        if(tts!=null)
+            tts.setLanguage(locale);
+    }
+
+    public void setPitch(float value){
+        if(tts!=null)
+            tts.setPitch(value);
+    }
+
+    /** 속도 선택 */
+    public void setSpeechRate(float value){
+        if(tts!=null)
+            tts.setSpeechRate(value);
+    }
+    /** 재생 */
+    public void speak(String text, int resId){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            if(tts != null){
+                tts.speak(text, mQueue, null, ""+resId);
+            }
+        }else{
+            HashMap<String, String> map = new HashMap<>();
+            map.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, ""+resId);
+            if(tts != null)
+                tts.speak(text, mQueue, map);
         }
     }
 
-    @SuppressWarnings("deprecation")
-    private void ttsUnder20(String text) {
-        HashMap<String, String> map = new HashMap<>();
-        map.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "MessageId");
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, map);
-    }
-
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    private void ttsGreater21(String text) {
-        String utteranceId=this.hashCode() + "";
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId);
-    }
 }
