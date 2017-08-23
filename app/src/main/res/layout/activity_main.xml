@@ -30,12 +30,12 @@
             tools:text="Text" />
 
         <Button
-            android:id="@+id/button3"
+            android:id="@+id/btnLandmark"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Button"
-            tools:text="butteon3" />
+            android:text="Landmarks"
+            tools:text="Landmarks" />
     </LinearLayout>
 
     <TextView
