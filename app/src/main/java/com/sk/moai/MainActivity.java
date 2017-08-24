@@ -76,8 +76,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        startActivity(new Intent(this, SplashActivity.class));
         setContentView(R.layout.activity_main);
 
         final CameraSurfaceView cameraView = new CameraSurfaceView(getApplicationContext());
