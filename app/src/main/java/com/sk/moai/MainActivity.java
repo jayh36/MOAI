@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.content.FileProvider;
@@ -41,6 +42,10 @@ import com.google.api.services.vision.v1.model.EntityAnnotation;
 import com.google.api.services.vision.v1.model.Feature;
 import com.google.api.services.vision.v1.model.Image;
 
+import com.google.cloud.translate.Translate;
+import com.google.cloud.translate.TranslateOptions;
+import com.google.cloud.translate.Translation;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -48,7 +53,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-    private static final String CLOUD_VISION_API_KEY = "AIzaSyBxx49_cm3Q0PgJEI5rWH69AUuMRvLmaL4";
+    private static final String API_KEY = "AIzaSyBxx49_cm3Q0PgJEI5rWH69AUuMRvLmaL4";
     public static final String FILE_NAME = "temp.jpg";
     private static final String ANDROID_CERT_HEADER = "X-Android-Cert";
     private static final String ANDROID_PACKAGE_HEADER = "X-Android-Package";
@@ -78,7 +83,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
 
-        startActivity(new Intent(this, SplashActivity.class));
+        startActivity(new Intent(MainActivity.this, SplashActivity.class));
+
         setContentView(R.layout.activity_main);
 
         final CameraSurfaceView cameraView = new CameraSurfaceView(getApplicationContext());
@@ -231,7 +237,7 @@ public class MainActivity extends AppCompatActivity {
                     JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
 
                     VisionRequestInitializer requestInitializer =
-                            new VisionRequestInitializer(CLOUD_VISION_API_KEY) {
+                            new VisionRequestInitializer(API_KEY) {
                                 /**
                                  * We override this so we can inject important identifying fields into the HTTP
                                  * headers. This enables use of a restricted cloud platform API key.
@@ -312,6 +318,8 @@ public class MainActivity extends AppCompatActivity {
                     setPitch(mPitch);
                     setSpeechRate(mRate);
                     speak(text, 0);
+
+                    callTranslation(text);
                 }
             }
         }.execute();
@@ -362,6 +370,31 @@ public class MainActivity extends AppCompatActivity {
             result += "I don't know...";
         }
         return result;
+    }
+
+    /******************************************************
+     * Translation 관련 함수
+     ******************************************************/
+    private void callTranslation(String str){
+        final Handler textViewHandler = new Handler();
+        final String text = str ;
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                TranslateOptions options = TranslateOptions.newBuilder().setApiKey(API_KEY).build();
+                Translate translate = options.getService();
+                final Translation translation = translate.translate(text, Translate.TranslateOption.sourceLanguage("en"),Translate.TranslateOption.targetLanguage("ko"));
+                textViewHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mImageDetails != null) {
+                            mImageDetails.setText(translation.getTranslatedText());
+                        }
+                    }
+                });
+                return null;
+            }
+        }.execute();
     }
 
     /******************************************************
