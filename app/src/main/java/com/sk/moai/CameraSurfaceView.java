@@ -2,6 +2,7 @@ package com.sk.moai;
 
 import android.content.Context;
 import android.hardware.Camera;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -11,8 +12,8 @@ import android.view.SurfaceView;
  */
 @SuppressWarnings("deprecation")
 public class CameraSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
-    private SurfaceHolder mHolder ;
-    private Camera camera = null ;
+    SurfaceHolder mHolder ;
+    Camera camera = null ;
 
     public Camera getCamera() {
         return camera;

@@ -1,29 +1,26 @@
 package com.sk.moai;
-import android.Manifest;
+
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.hardware.Camera;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
-import android.provider.MediaStore;
-import android.support.annotation.NonNull;
-import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
+
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
-import android.widget.Button;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
+import android.widget.ImageButton;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.speech.tts.TextToSpeech;
 import android.os.Build;
-import android.annotation.TargetApi;
 import java.util.HashMap;
 import java.util.Locale;
 
@@ -47,29 +44,29 @@ import com.google.cloud.translate.TranslateOptions;
 import com.google.cloud.translate.Translation;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private static final String API_KEY = "AIzaSyBxx49_cm3Q0PgJEI5rWH69AUuMRvLmaL4";
-    public static final String FILE_NAME = "temp.jpg";
     private static final String ANDROID_CERT_HEADER = "X-Android-Cert";
     private static final String ANDROID_PACKAGE_HEADER = "X-Android-Package";
     public static  String FEATURE_TYPE = "LABEL_DETECTION";
+    public static  String LANGUAGE = "en" ;
 
     private static final String TAG = MainActivity.class.getSimpleName();
-    private static final int GALLERY_PERMISSIONS_REQUEST = 0;
-    private static final int GALLERY_IMAGE_REQUEST = 1;
-    public static final int CAMERA_PERMISSIONS_REQUEST = 2;
-    public static final int CAMERA_IMAGE_REQUEST = 3;
 
+    private CameraSurfaceView cameraView;
+    private FrameLayout previewFrame ;
     private TextView mImageDetails;
-    private ImageView mMainImage;
-    private Button btnDetection ;
-    private Button btnText ;
-    private Button btnLandmark ;
+    private ImageButton btnDetection ;
+    private ImageButton btnText ;
+    private ImageButton btnLandmark ;
+    private Spinner spinner;
+
+    ArrayAdapter<String> myAdapter;
+    String[] names = {"== 선택 ==","한국어","영어","일어","중국어","아랍어"};
 
     // TTS 설정
     private TextToSpeech tts;
@@ -87,25 +84,15 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        final CameraSurfaceView cameraView = new CameraSurfaceView(getApplicationContext());
-
-        FrameLayout previewFrame = (FrameLayout) findViewById(R.id.frameLayout);
         mImageDetails = (TextView) findViewById(R.id.imageResult);
+        previewFrame = (FrameLayout) findViewById(R.id.frameLayout);
+        cameraView = new CameraSurfaceView(this);
+
         previewFrame.addView(cameraView);
 
-        tts = new TextToSpeech(getBaseContext(), new TextToSpeech.OnInitListener() {
-            @Override
-            public void onInit(int status) {
-                if(status == TextToSpeech.SUCCESS) {
-                } else{
-                    // todo: fail 시 처리
-                }
-            }
-        });
-
-        btnDetection = (Button)findViewById(R.id.btnDetection);
-        btnText = (Button)findViewById(R.id.btnText);
-        btnLandmark = (Button)findViewById(R.id.btnLandmark);
+        btnDetection = (ImageButton)findViewById(R.id.btnDetection);
+        btnText = (ImageButton)findViewById(R.id.btnText);
+        btnLandmark = (ImageButton)findViewById(R.id.btnLandmark);
 
         btnDetection.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -126,10 +113,42 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        myAdapter=new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,names);
+        spinner = (Spinner) findViewById(R.id.spinner);
+        spinner.setAdapter(myAdapter);
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id){
+                if(position == 1){
+                    LANGUAGE = "ko";
+                }else if(position == 2){
+                    LANGUAGE = "en";
+                }else if(position == 3){
+                    LANGUAGE = "ja";
+                }else if(position == 4){
+                LANGUAGE = "zh";
+                }else if(position == 5){
+                LANGUAGE = "ar";
+            }
+            }
+            @Override
+            public void onNothingSelected(AdapterView<?> parent){}
+        });
+
+        tts = new TextToSpeech(getBaseContext(), new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if(status == TextToSpeech.SUCCESS) {
+                } else{
+                    // todo: fail 시 처리
+                }
+            }
+        });
+
         previewFrame.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Camera mCamera = cameraView.getCamera();
+                Camera mCamera = cameraView.camera;
                 mCamera.autoFocus (new Camera.AutoFocusCallback() {
                     public void onAutoFocus(boolean success, Camera camera) {
                         if(success){
@@ -155,57 +174,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-/*
-    public void startGalleryChooser() {
-        if (PermissionUtils.requestPermission(this, GALLERY_PERMISSIONS_REQUEST, Manifest.permission.READ_EXTERNAL_STORAGE)) {
-            Intent intent = new Intent();
-            intent.setType("image/*");
-            intent.setAction(Intent.ACTION_GET_CONTENT);
-            startActivityForResult(Intent.createChooser(intent, "Select a photo"),
-                    GALLERY_IMAGE_REQUEST);
-        }
-    }
-
-    public void startCamera() {
-        if (PermissionUtils.requestPermission(
-                this,
-                CAMERA_PERMISSIONS_REQUEST,
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.CAMERA)) {
-            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            Uri photoUri = FileProvider.getUriForFile(this, getApplicationContext().getPackageName() + ".provider", getCameraFile());
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivityForResult(intent, CAMERA_IMAGE_REQUEST);
-        }
-    }
-
-    public File getCameraFile() {
-        File dir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-        return new File(dir, FILE_NAME);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(
-            int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode) {
-            case CAMERA_PERMISSIONS_REQUEST:
-                if (PermissionUtils.permissionGranted(requestCode, CAMERA_PERMISSIONS_REQUEST, grantResults)) {
-                    startCamera();
-                }
-                break;
-            case GALLERY_PERMISSIONS_REQUEST:
-                if (PermissionUtils.permissionGranted(requestCode, GALLERY_PERMISSIONS_REQUEST, grantResults)) {
-                    startGalleryChooser();
-                }
-                break;
-        }
-    }
-*/
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    public void onItemSelected(AdapterView<?> parent, View view, int position, long id){
+
     }
 
     // Bitmap bitmap
@@ -383,7 +358,7 @@ public class MainActivity extends AppCompatActivity {
             protected Void doInBackground(Void... params) {
                 TranslateOptions options = TranslateOptions.newBuilder().setApiKey(API_KEY).build();
                 Translate translate = options.getService();
-                final Translation translation = translate.translate(text, Translate.TranslateOption.sourceLanguage("en"),Translate.TranslateOption.targetLanguage("ko"));
+                final Translation translation = translate.translate(text, Translate.TranslateOption.sourceLanguage("en"),Translate.TranslateOption.targetLanguage(LANGUAGE));
                 textViewHandler.post(new Runnable() {
                     @Override
                     public void run() {

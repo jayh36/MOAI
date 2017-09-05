@@ -9,6 +9,7 @@ android {
         targetSdkVersion 25
         versionCode 1
         versionName "1.0"
+        multiDexEnabled true
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     configurations.all {
@@ -25,6 +26,11 @@ android {
         exclude 'META-INF/io.netty.versions.properties'
         exclude 'META-INF/INDEX.LIST'
     }
+    dexOptions{
+        javaMaxHeapSize = "4g"
+
+    }
+
 }
 
 dependencies {
@@ -32,6 +38,7 @@ dependencies {
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
+
     compile 'com.android.support:appcompat-v7:25.1.1'
     compile ('com.google.apis:google-api-services-translate:v2-rev47-1.22.0') {
         exclude group: 'com.google.guava'
@@ -45,6 +52,7 @@ dependencies {
     compile 'com.google.api-client:google-api-client-android:1.20.0' exclude module: 'httpclient'
     compile 'com.google.http-client:google-http-client-gson:1.20.0' exclude module: 'httpclient'
     compile 'com.google.apis:google-api-services-vision:v1-rev2-1.21.0'
+    compile 'com.android.support:multidex:1.0.0'
 
     testCompile 'junit:junit:4.12'
 }
